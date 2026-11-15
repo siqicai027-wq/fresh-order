@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>鲜选 · 每日订购单</title>
+  <style>
+    :root {
+      --ink: #1d2824;
+      --muted: #6d7771;
+      --line: #e8ebe8;
+      --canvas: #f6f7f3;
+      --paper: #fffefb;
+      --leaf: #1f6a47;
+      --leaf-dark: #13472f;
+      --lime: #c5df7a;
+      --warm: #ffbf6c;
+      --coral: #ed6a5c;
+      --shadow: 0 12px 32px rgba(26, 49, 38, .08);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background: var(--canvas);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between; gap: 20px;
+      padding: 15px max(24px, calc((100vw - 1440px) / 2));
+      color: white; background: #1d5b3d; box-shadow: 0 2px 16px rgba(18, 55, 36, .13);
+    }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 800; letter-spacing: .02em; }
+    .brand-mark {
+      width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px;
+      font-size: 15px; font-weight: 900; background: var(--lime); color: #19442e;
+    }
+    .today { color: rgba(255,255,255,.8); font-size: 13px; }
+    .top-actions { display: flex; align-items: center; gap: 9px; }
+    .header-btn, .add-product {
+      border: 1px solid rgba(255,255,255,.28); border-radius: 10px; padding: 9px 13px;
+      color: white; background: rgba(255,255,255,.1); transition: .2s ease;
+    }
+    .header-btn:hover { background: rgba(255,255,255,.2); }
+    .add-product { color: var(--leaf-dark); border-color: transparent; background: var(--lime); font-weight: 700; }
+
+    .page { max-width: 1440px; margin: 0 auto; padding: 28px 24px 48px; }
+    .intro { display: flex; justify-content: space-between; align-items: end; gap: 28px; margin: 6px 0 24px; }
+    h1 { margin: 0 0 7px; font-size: clamp(27px, 3vw, 40px); letter-spacing: -.05em; }
+    .intro p { margin: 0; color: var(--muted); line-height: 1.6; }
+    .notice {
+      display: flex; gap: 9px; align-items: center; flex: 0 0 auto; padding: 10px 14px;
+      border-radius: 12px; color: #5c501e; background: #fff5cf; font-size: 13px;
+    }
+
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 385px; gap: 24px; align-items: start; }
+    .catalogue, .order-panel { border: 1px solid var(--line); border-radius: 20px; background: var(--paper); box-shadow: var(--shadow); }
+    .catalogue { overflow: hidden; }
+    .catalogue-head { padding: 18px 20px 0; }
+    .controls { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+    .search { position: relative; flex: 1; }
+    .search svg { position: absolute; left: 13px; top: 50%; width: 17px; transform: translateY(-50%); color: #849088; }
+    .search input {
+      width: 100%; padding: 11px 13px 11px 39px; border: 1px solid var(--line); border-radius: 11px;
+      color: var(--ink); background: #fbfcfa; outline: none;
+    }
+    .search input:focus { border-color: #9fcaad; box-shadow: 0 0 0 3px rgba(31,106,71,.1); }
+    .category-tabs { display: flex; gap: 7px; margin-top: 18px; overflow-x: auto; padding-bottom: 1px; }
+    .tab { flex: 0 0 auto; border: 0; border-bottom: 3px solid transparent; padding: 10px 11px 12px; color: var(--muted); background: transparent; font-weight: 700; }
+    .tab.active { color: var(--leaf); border-bottom-color: var(--leaf); }
+    .catalogue-meta { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 0; color: var(--muted); font-size: 13px; }
+    .catalogue-meta span:last-child { color: var(--leaf); font-weight: 700; }
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); gap: 14px; padding: 14px 20px 22px; }
+    .product {
+      position: relative; min-width: 0; border: 1px solid var(--line); border-radius: 16px; padding: 10px;
+      background: white; transition: transform .2s, box-shadow .2s, border-color .2s;
+    }
+    .product:hover { z-index: 1; border-color: #b6d2bb; box-shadow: 0 9px 20px rgba(27,75,47,.1); transform: translateY(-2px); }
+    .food-art {
+      position: relative; display: grid; place-items: center; height: 105px; overflow: hidden; border-radius: 11px;
+      background: var(--art-bg, #eef3ed);
+    }
+    .food-art::before, .food-art::after { content: ""; position: absolute; border-radius: 999px; opacity: .28; }
+    .food-art::before { width: 115px; height: 115px; top: -55px; left: -32px; background: #fff; }
+    .food-art::after { width: 90px; height: 90px; bottom: -52px; right: -25px; background: var(--art-accent, #78b581); }
+    .food-art img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
+    .image-placeholder { position: relative; z-index: 1; color: #6d7771; font-size: 11px; font-weight: 800; letter-spacing: .05em; }
+    .product-name { margin: 10px 0 2px; overflow: hidden; font-size: 15px; font-weight: 800; white-space: nowrap; text-overflow: ellipsis; }
+    .product-en { min-height: 17px; overflow: hidden; color: var(--muted); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+    .picker { display: grid; grid-template-columns: 27px 1fr 27px; align-items: center; margin-top: 10px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+    .picker button { height: 29px; border: 0; color: var(--leaf); background: #f7faf6; font-weight: 800; }
+    .picker button:hover { background: #eaf3e9; }
+    .picker input { width: 100%; min-width: 0; border: 0; text-align: center; color: var(--ink); outline: none; font-weight: 750; }
+    .picker input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .unit { margin-top: 3px; color: #98a29b; text-align: center; font-size: 10px; }
+    .add-btn { width: 100%; margin-top: 8px; border: 0; border-radius: 9px; padding: 8px; color: white; background: var(--leaf); font-size: 12px; font-weight: 800; }
+    .add-btn:hover { background: var(--leaf-dark); }
+    .empty-search { grid-column: 1 / -1; padding: 35px 15px; color: var(--muted); text-align: center; }
+
+    .order-panel { position: sticky; top: 82px; overflow: hidden; }
+    .order-head { padding: 20px 20px 16px; color: white; background: #245f42; }
+    .order-kicker { color: #c4e6bd; font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+    .order-title-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 4px; }
+    .order-title-row h2 { margin: 0; font-size: 22px; letter-spacing: -.04em; }
+    .order-date { color: rgba(255,255,255,.75); font-size: 12px; }
+    .order-stats { display: flex; gap: 8px; margin-top: 14px; }
+    .stat { flex: 1; padding: 9px 10px; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; background: rgba(0,0,0,.1); }
+    .stat b { display: block; font-size: 17px; }.stat span { color: rgba(255,255,255,.7); font-size: 10px; }
+    .order-list { max-height: min(50vh, 530px); overflow: auto; }
+    .order-group { padding: 15px 20px 7px; }
+    .order-group + .order-group { border-top: 1px solid var(--line); }
+    .group-label { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--leaf); font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+    .order-item { display: grid; grid-template-columns: 34px minmax(0,1fr) auto 24px; align-items: center; gap: 9px; padding: 8px 0; }
+    .order-thumb { display: grid; place-items: center; width: 34px; height: 34px; overflow: hidden; border-radius: 9px; color: #829087; background: var(--item-bg, #eef5e9); font-size: 9px; text-align: center; }
+    .order-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .order-cn { overflow: hidden; font-size: 13px; font-weight: 800; white-space: nowrap; text-overflow: ellipsis; }
+    .order-en { overflow: hidden; color: var(--muted); font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
+    .order-qty { color: var(--leaf); font-size: 13px; font-weight: 900; white-space: nowrap; }
+    .remove { border: 0; border-radius: 6px; color: #a2aaa5; background: transparent; font-size: 18px; line-height: 1; }
+    .remove:hover { color: #c9473f; background: #fff0ee; }
+    .empty-order { padding: 34px 25px; color: var(--muted); text-align: center; }
+    .empty-order i { display: block; margin-bottom: 6px; font-size: 35px; font-style: normal; }
+    .order-bottom { padding: 16px 20px 20px; border-top: 1px solid var(--line); background: #fcfdfb; }
+    .vendor-buttons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+    .vendor-btn { border: 1px solid #dce7dc; border-radius: 9px; padding: 8px 3px; color: var(--leaf); background: white; font-size: 11px; font-weight: 800; }
+    .vendor-btn:hover { border-color: var(--leaf); background: #f1f8ef; }
+    .empty-vendor { color: var(--muted); font-size: 11px; text-align: center; }
+    .panel-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .panel-actions button { border-radius: 10px; padding: 10px 7px; font-size: 12px; font-weight: 800; }
+    .clear { border: 1px solid #e6d4d0; color: #bd5a50; background: #fffafa; }.clear:hover { background: #fff1ef; }
+    .print { border: 0; color: white; background: var(--leaf); }.print:hover { background: var(--leaf-dark); }
+
+    dialog { width: min(480px, calc(100% - 30px)); border: 0; border-radius: 18px; padding: 0; box-shadow: 0 18px 60px rgba(0,0,0,.28); }
+    dialog::backdrop { background: rgba(11, 31, 20, .44); backdrop-filter: blur(2px); }
+    .dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 19px 20px 15px; border-bottom: 1px solid var(--line); }
+    .dialog-head h3 { margin: 0; font-size: 19px; }.dialog-close { border: 0; color: #819087; background: transparent; font-size: 23px; }
+    .product-form { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; padding: 20px; }
+    .product-form label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .product-form label.full { grid-column: 1 / -1; }
+    .product-form input, .product-form select { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 10px; outline: none; color: var(--ink); background: #fff; }
+    .product-form input:focus, .product-form select:focus { border-color: #8fc5a0; }
+    .dialog-actions { display: flex; justify-content: end; gap: 8px; grid-column: 1 / -1; margin-top: 5px; }
+    .dialog-actions button { border-radius: 9px; padding: 9px 14px; font-weight: 800; }.cancel { border: 1px solid var(--line); background: white; }.save { border: 0; color: white; background: var(--leaf); }
+    .manager { max-height: min(73vh, 650px); overflow: auto; padding: 20px; }
+    .manager h4 { margin: 0 0 7px; font-size: 15px; }.manager p { margin: 0 0 14px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .manager-section + .manager-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+    .manager-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .manager-form label { display: grid; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 800; }.manager-form .full { grid-column: 1 / -1; }
+    .manager-form input, .manager-form select { min-width: 0; width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px; color: var(--ink); background: white; outline: none; }
+    .manager-form input:focus, .manager-form select:focus { border-color: #8fc5a0; }
+    .manager-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; grid-column: 1 / -1; margin-top: 2px; }.manager-actions span { color: var(--muted); font-size: 10px; }
+    .mini-btn { border: 1px solid #dbe7dc; border-radius: 8px; padding: 8px 10px; color: var(--leaf); background: #fff; font-size: 12px; font-weight: 800; }.mini-btn:hover { background: #f0f8ee; }.mini-btn.danger { border-color: #f0d4d0; color: #bd5a50; }.mini-btn.danger:hover { background: #fff2f0; }
+    .toast { position: fixed; z-index: 20; bottom: 24px; left: 50%; padding: 11px 16px; border-radius: 10px; color: white; background: #203d2d; box-shadow: 0 10px 24px rgba(0,0,0,.18); font-size: 13px; transform: translate(-50%, 25px); opacity: 0; pointer-events: none; transition: .25s; }
+    .toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+    @media (max-width: 1040px) { .workspace { grid-template-columns: minmax(0, 1fr) 330px; }.product-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); } }
+    @media (max-width: 820px) { .workspace { grid-template-columns: 1fr; }.order-panel { position: static; }.order-list { max-height: none; }.intro { align-items: start; flex-direction: column; }.notice { max-width: 100%; }.product-grid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); } }
+    @media (max-width: 560px) { .topbar { padding: 12px 15px; }.today, #copyAll { display: none; }.page { padding: 20px 14px 35px; }.catalogue-head, .catalogue-meta, .product-grid { padding-left: 14px; padding-right: 14px; }.product-grid { gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }.food-art { height: 87px; font-size: 48px; }.product { padding: 8px; }.top-actions .add-product { padding: 8px 10px; }.notice { font-size: 12px; } }
+
+    @media print {
+      @page { size: A4; margin: 14mm; }
+      body { background: white; }.topbar, .intro, .catalogue, .order-bottom, .remove { display: none !important; }
+      .page { padding: 0; }.workspace { display: block; }.order-panel { position: static; border: 0; box-shadow: none; }.order-head { border-radius: 0; }.order-list { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">鲜</div><span>鲜选订购单</span></div>
+    <div class="today" id="todayTop"></div>
+    <div class="top-actions"><button class="header-btn" id="copyAll">复制全部订单</button><button class="header-btn" id="openManager">管理目录</button><button class="add-product" id="openDialog">＋ 自定义品类</button></div>
+  </header>
+
+  <main class="page">
+    <section class="intro">
+      <div><h1>今日要订什么？</h1><p>选好品类和数量，一键生成分供应商的中英双语订购单。</p></div>
+      <div class="notice"><span>提示</span><span>数量支持 0.5 kg；可以在订单中随时删除。</span></div>
+    </section>
+    <section class="workspace">
+      <div class="catalogue">
+        <div class="catalogue-head">
+          <div class="controls"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg><input id="search" placeholder="搜索中文、英文，如 cucumber / 黄瓜" autocomplete="off" /></div></div>
+          <nav class="category-tabs" aria-label="商品分类" id="tabs"></nav>
+        </div>
+        <div class="catalogue-meta"><span id="catalogueTitle">蔬菜 · Vegetables</span><span id="itemCount"></span></div>
+        <div class="product-grid" id="productGrid"></div>
+      </div>
+      <aside class="order-panel">
+        <div class="order-head"><div class="order-kicker">TODAY'S PURCHASE LIST</div><div class="order-title-row"><h2>今日订购单</h2><span class="order-date" id="orderDate"></span></div><div class="order-stats"><div class="stat"><b id="selectedCount">0</b><span>订购品项</span></div><div class="stat"><b id="totalQty">0 kg</b><span>合计重量</span></div><div class="stat"><b id="categoryCount">0</b><span>供应商订单</span></div></div></div>
+        <div class="order-list" id="orderList"></div>
+        <div class="order-bottom"><div id="vendorButtons" class="vendor-buttons"></div><div class="panel-actions"><button class="clear" id="clearOrder">清空订单</button><button class="print" id="printOrder">打印 / 存 PDF</button></div></div>
+      </aside>
+    </section>
+  </main>
+
+  <dialog id="productDialog">
+    <div class="dialog-head"><h3>添加自定义品类</h3><button class="dialog-close" id="closeDialog" aria-label="关闭">×</button></div>
+    <form class="product-form" id="customForm">
+      <label>分类<select name="category"><option value="vegetable">蔬菜</option><option value="pork">猪肉</option><option value="seafood">海鲜</option></select></label>
+      <label>图片文件<input name="image" type="file" accept="image/*" /></label>
+      <label class="full">中文名称<input name="cn" placeholder="例如：芥兰" required /></label>
+      <label class="full">英文名称<input name="en" placeholder="例如：Chinese broccoli" required /></label>
+      <label>默认数量<input name="quantity" type="number" min="0.5" step="0.5" value="1" required /></label>
+      <label>单位<select name="unit" id="newUnit"></select></label>
+      <div class="dialog-actions"><button type="button" class="cancel" id="cancelDialog">取消</button><button class="save" type="submit">添加到目录</button></div>
+    </form>
+  </dialog>
+  <dialog id="managerDialog">
+    <div class="dialog-head"><h3>管理目录</h3><button class="dialog-close" id="closeManager" aria-label="关闭">×</button></div>
+    <div class="manager">
+      <section class="manager-section">
+        <h4>修改食材</h4><p>可以更改食材的中英文名称、图片、所属分类和默认单位。上传的图片会保存在此浏览器中。</p>
+        <form class="manager-form" id="editProductForm">
+          <label class="full">选择食材<select id="editProductSelect"></select></label>
+          <label>中文名称<input id="editCn" required /></label><label>英文名称<input id="editEn" required /></label>
+          <label class="full">上传 / 更换图片<input id="editImage" type="file" accept="image/*" /></label><label class="full">所属分类<select id="editCategory"></select></label>
+          <label>单位<select id="editUnit"></select></label>
+          <div class="manager-actions"><button class="mini-btn danger" type="button" id="deleteCustom" hidden>删除此自定义食材</button><span id="productOrigin"></span><button class="mini-btn" type="submit">保存食材修改</button></div>
+        </form>
+      </section>
+      <section class="manager-section">
+        <h4>管理供应商分类</h4><p>分类会自动出现在目录标签和订购单中，可用于新增“干货”等供应商。</p>
+        <form class="manager-form" id="editCategoryForm">
+          <label class="full">选择分类<select id="manageCategorySelect"></select></label>
+          <label>中文名称<input id="categoryCn" required /></label><label>英文名称<input id="categoryEn" required /></label>
+          <div class="manager-actions"><button class="mini-btn" type="button" id="newCategory">＋ 新建分类</button><span id="categoryOrigin"></span><button class="mini-btn" type="submit">保存分类</button></div>
+        </form>
+      </section>
+      <section class="manager-section">
+        <h4>管理单位</h4><p>单位会以英文显示在商品卡片、订单和供应商订购单中。</p>
+        <form class="manager-form" id="editUnitForm">
+          <label class="full">选择单位<select id="manageUnitSelect"></select></label>
+          <label class="full">英文单位名称<input id="unitName" placeholder="例如：tray" required /></label>
+          <div class="manager-actions"><button class="mini-btn" type="button" id="newUnitButton">＋ 新增单位</button><span id="unitOrigin"></span><button class="mini-btn" type="submit">保存单位</button></div>
+        </form>
+      </section>
+    </div>
+  </dialog>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const defaultCategoryInfo = {
+      vegetable: { cn: '蔬菜', en: 'Vegetables', bg: '#e3f2d8', accent: '#5aab6d' },
+      pork: { cn: '猪肉', en: 'Pork', bg: '#ffe1d7', accent: '#df7566' },
+      seafood: { cn: '海鲜', en: 'Seafood', bg: '#dceff3', accent: '#58a7b5' }
+    };
+    let categoryInfo = { ...defaultCategoryInfo, ...JSON.parse(localStorage.getItem('freshOrderCategories') || '{}') };
+    const defaultUnits = { kg: 'kg', piece: 'piece', box: 'box', pack: 'pack', carton: 'carton' };
+    let unitInfo = { ...defaultUnits, ...JSON.parse(localStorage.getItem('freshOrderUnits') || '{}') };
+    const legacyUnitMap = { '个': 'piece', '盒': 'box', '包': 'pack', '箱': 'carton' };
+    let products = [
+      ['vegetable','黄瓜','Cucumber'], ['vegetable','大葱','Spring onion'], ['vegetable','香菜','Coriander'], ['vegetable','茄子','Eggplant'], ['vegetable','大白菜','Napa cabbage'], ['vegetable','小白菜','Bok choy'], ['vegetable','上海青','Shanghai bok choy'], ['vegetable','油麦菜','A-choy'], ['vegetable','生菜','Lettuce'], ['vegetable','西兰花','Broccoli'], ['vegetable','菜心','Choy sum'], ['vegetable','青椒','Green pepper'], ['vegetable','红椒','Red pepper'], ['vegetable','番茄','Tomato'], ['vegetable','土豆','Potato'], ['vegetable','胡萝卜','Carrot'], ['vegetable','洋葱','Onion'], ['vegetable','韭菜','Garlic chives'], ['vegetable','豆芽','Bean sprouts'], ['vegetable','冬瓜','Winter melon'],
+      ['pork','猪手','Pork hand'], ['pork','猪脚','Pork trotter'], ['pork','猪肚','Pork stomach'], ['pork','五花肉','Pork belly'], ['pork','排骨','Pork ribs'], ['pork','猪颈肉','Pork neck'], ['pork','猪肉末','Minced pork'], ['pork','梅头肉','Pork shoulder butt'], ['pork','猪腰','Pork kidney'], ['pork','猪肝','Pork liver'], ['pork','大肠','Pork intestine'], ['pork','猪皮','Pork skin'],
+      ['seafood','白虾','White prawns'], ['seafood','花蟹','Flower crab'], ['seafood','青口','Green mussels'], ['seafood','带子','Scallops'], ['seafood','鱿鱼','Squid'], ['seafood','墨鱼','Cuttlefish'], ['seafood','多宝鱼','Turbot'], ['seafood','金目鲈','Barramundi'], ['seafood','鱼片','Fish fillet'], ['seafood','生蚝','Oysters'], ['seafood','蛤蜊','Clams'], ['seafood','海参','Sea cucumber'], ['seafood','龙虾','Lobster']
+    ].map(([category, cn, en], index) => ({ id: `item-${index + 1}`, category, cn, en, unit: 'kg', image: '' }));
+
+    const savedEdits = JSON.parse(localStorage.getItem('freshOrderEdits') || '{}');
+    products = products.map(item => ({ ...item, ...(savedEdits[item.id] || {}) })).map(item => ({ ...item, unit: legacyUnitMap[item.unit] || item.unit }));
+    const savedCustom = JSON.parse(localStorage.getItem('freshOrderCustom') || '[]').filter(item => categoryInfo[item.category]);
+    products.push(...savedCustom);
+    let activeCategory = 'vegetable';
+    let searchTerm = '';
+    let order = JSON.parse(localStorage.getItem('freshOrderOrder') || '[]').map(item => ({ ...item, unit: legacyUnitMap[item.unit] || item.unit }));
+    const $ = (selector) => document.querySelector(selector);
+    const productById = (id) => products.find(item => item.id === id);
+    const number = (value) => (Math.round(value * 100) / 100).toString().replace(/\.0$/, '');
+    const today = new Date();
+    const dayText = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' }).format(today);
+    $('#todayTop').textContent = dayText;
+    $('#orderDate').textContent = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' }).format(today);
+
+    function saveOrder() { localStorage.setItem('freshOrderOrder', JSON.stringify(order)); }
+    function saveCatalog() {
+      localStorage.setItem('freshOrderCategories', JSON.stringify(categoryInfo));
+      localStorage.setItem('freshOrderUnits', JSON.stringify(unitInfo));
+      localStorage.setItem('freshOrderCustom', JSON.stringify(products.filter(item => item.id.startsWith('custom-'))));
+      const edits = Object.fromEntries(products.filter(item => !item.id.startsWith('custom-')).map(item => [item.id, { category: item.category, cn: item.cn, en: item.en, image: item.image || '', unit: item.unit }]));
+      localStorage.setItem('freshOrderEdits', JSON.stringify(edits));
+    }
+    function resizeImage(file) {
+      if (!file || !file.size) return Promise.resolve('');
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('图片读取失败'));
+        reader.onload = () => {
+          const image = new Image();
+          image.onerror = () => reject(new Error('图片格式不支持'));
+          image.onload = () => {
+            const maxSide = 520;
+            const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(image.width * scale)); canvas.height = Math.max(1, Math.round(image.height * scale));
+            canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', .82));
+          };
+          image.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    function toast(message) { const el = $('#toast'); el.textContent = message; el.classList.add('show'); clearTimeout(window.toastTimer); window.toastTimer = setTimeout(() => el.classList.remove('show'), 2300); }
+    function tabs() {
+      $('#tabs').innerHTML = Object.entries(categoryInfo).map(([id, cat]) => `<button class="tab ${id === activeCategory ? 'active' : ''}" data-category="${id}">${cat.cn}<span> · ${cat.en}</span></button>`).join('');
+    }
+    function categoryOptions(selected = '') {
+      return Object.entries(categoryInfo).map(([id, cat]) => `<option value="${id}" ${id === selected ? 'selected' : ''}>${cat.cn} · ${cat.en}</option>`).join('');
+    }
+    function unitOptions(selected = '') {
+      return Object.entries(unitInfo).map(([id, label]) => `<option value="${id}" ${id === selected ? 'selected' : ''}>${label}</option>`).join('');
+    }
+    function unitLabel(unit) { return unitInfo[unit] || unit; }
+    function syncCustomCategoryOptions() {
+      const select = $('#customForm [name="category"]');
+      const value = select.value || activeCategory;
+      select.innerHTML = categoryOptions(value);
+      const unitSelect = $('#newUnit');
+      unitSelect.innerHTML = unitOptions(unitSelect.value || 'kg');
+    }
+    function productCard(item) {
+      const cat = categoryInfo[item.category];
+      const visual = item.image ? `<img src="${item.image}" alt="${item.cn}" />` : `<div class="image-placeholder">待上传图片</div>`;
+      return `<article class="product"><div class="food-art" style="--art-bg:${cat.bg};--art-accent:${cat.accent}">${visual}</div><div class="product-name">${item.cn}</div><div class="product-en">${item.en}</div><div class="picker"><button data-action="reduce" data-id="${item.id}" aria-label="减少数量">−</button><input data-quantity="${item.id}" type="number" min="0.5" step="0.5" value="1"><button data-action="increase" data-id="${item.id}" aria-label="增加数量">＋</button></div><div class="unit">Unit: ${unitLabel(item.unit)}</div><button class="add-btn" data-action="add" data-id="${item.id}">加入订购单</button></article>`;
+    }
+    function renderProducts() {
+      tabs();
+      syncCustomCategoryOptions();
+      const pool = products.filter(item => item.category === activeCategory && (`${item.cn} ${item.en}`.toLowerCase()).includes(searchTerm.toLowerCase()));
+      const cat = categoryInfo[activeCategory];
+      $('#catalogueTitle').textContent = `${cat.cn} · ${cat.en}`;
+      $('#itemCount').textContent = `${pool.length} 个品项`;
+      $('#productGrid').innerHTML = pool.length ? pool.map(productCard).join('') : `<div class="empty-search">没有找到“${searchTerm}”相关品项<br><small>可点击右上角“自定义品类”添加</small></div>`;
+    }
+    function itemTotalWeight(item) { return item.unit === 'kg' ? item.qty : 0; }
+    function groupedOrder() {
+      return Object.keys(categoryInfo).map(category => ({ category, entries: order.filter(item => item.category === category) })).filter(group => group.entries.length);
+    }
+    function renderOrder() {
+      const groups = groupedOrder();
+      const total = order.reduce((sum, item) => sum + itemTotalWeight(item), 0);
+      $('#selectedCount').textContent = order.length;
+      $('#totalQty').textContent = `${number(total)} kg`;
+      $('#categoryCount').textContent = groups.length;
+      $('#orderList').innerHTML = groups.length ? groups.map(({ category, entries }) => {
+        const cat = categoryInfo[category];
+        return `<section class="order-group"><div class="group-label"><span>${cat.cn} / ${cat.en}</span><span>${entries.length} 项</span></div>${entries.map(item => `<div class="order-item"><div class="order-thumb" style="--item-bg:${cat.bg}">${item.image ? `<img src="${item.image}" alt="${item.cn}" />` : '待上传'}</div><div><div class="order-cn">${item.cn}</div><div class="order-en">${item.en}</div></div><div class="order-qty">${number(item.qty)} ${unitLabel(item.unit)}</div><button class="remove" data-remove="${item.id}" title="删除">×</button></div>`).join('')}</section>`;
+      }).join('') : `<div class="empty-order">尚未选择品项<br><small>从左侧目录加入今天需要的食材</small></div>`;
+      $('#vendorButtons').innerHTML = groups.length ? groups.map(({ category }) => `<button class="vendor-btn" data-copy-category="${category}">复制${categoryInfo[category].cn}单</button>`).join('') : `<div class="empty-vendor">生成订单后，可复制给对应供应商</div>`;
+      saveOrder();
+    }
+    function addItem(product, quantity) {
+      const qty = Number(quantity);
+      if (!qty || qty <= 0) { toast('请输入有效数量'); return; }
+      const current = order.find(item => item.id === product.id);
+      if (current) current.qty = Math.round((current.qty + qty) * 100) / 100;
+      else order.push({ ...product, qty });
+      renderOrder();
+      toast(`已加入：${product.cn} ${number(qty)} ${product.unit}`);
+    }
+    function orderText(category) {
+      const cat = categoryInfo[category];
+      const entries = order.filter(item => item.category === category);
+      if (!entries.length) return '';
+      const date = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric' }).format(today);
+      return `【${date} ${cat.cn}订购单 / ${cat.en} Order】\n${entries.map((item, i) => `${i + 1}. ${item.cn} ${item.en} — ${number(item.qty)} ${unitLabel(item.unit)}`).join('\n')}\n\n请按以上数量准备，谢谢！`;
+    }
+    async function copyText(text, success) {
+      try { await navigator.clipboard.writeText(text); toast(success); }
+      catch { window.prompt('请复制以下订购单：', text); }
+    }
+    $('#tabs').addEventListener('click', (event) => { const button = event.target.closest('[data-category]'); if (button) { activeCategory = button.dataset.category; searchTerm = ''; $('#search').value = ''; renderProducts(); } });
+    $('#productGrid').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-action]'); if (!button) return; const product = productById(button.dataset.id); const input = document.querySelector(`[data-quantity="${product.id}"]`); const value = Number(input.value) || 0;
+      if (button.dataset.action === 'reduce') input.value = Math.max(.5, value - .5);
+      if (button.dataset.action === 'increase') input.value = number(value + .5);
+      if (button.dataset.action === 'add') addItem(product, value);
+    });
+    $('#search').addEventListener('input', (event) => { searchTerm = event.target.value.trim(); renderProducts(); });
+    $('#orderList').addEventListener('click', (event) => { const button = event.target.closest('[data-remove]'); if (!button) return; order = order.filter(item => item.id !== button.dataset.remove); renderOrder(); toast('已从订单中删除'); });
+    $('#vendorButtons').addEventListener('click', (event) => { const button = event.target.closest('[data-copy-category]'); if (button) copyText(orderText(button.dataset.copyCategory), `已复制${categoryInfo[button.dataset.copyCategory].cn}订购单`); });
+    $('#copyAll').addEventListener('click', () => { const text = Object.keys(categoryInfo).map(orderText).filter(Boolean).join('\n\n'); if (text) copyText(text, '已复制全部供应商订单'); else toast('请先加入需要订购的品项'); });
+    $('#clearOrder').addEventListener('click', () => { if (!order.length) return toast('订单已经是空的'); if (confirm('确定要清空今天的订购单吗？')) { order = []; renderOrder(); toast('今日订单已清空'); } });
+    $('#printOrder').addEventListener('click', () => { if (!order.length) return toast('请先加入需要订购的品项'); window.print(); });
+    const dialog = $('#productDialog');
+    $('#openDialog').addEventListener('click', () => { syncCustomCategoryOptions(); dialog.showModal(); });
+    $('#closeDialog').addEventListener('click', () => dialog.close());
+    $('#cancelDialog').addEventListener('click', () => dialog.close());
+    $('#customForm').addEventListener('submit', async (event) => {
+      event.preventDefault(); const data = new FormData(event.currentTarget); let image = '';
+      try { image = await resizeImage(data.get('image')); } catch (error) { toast(error.message); return; }
+      const item = { id: `custom-${Date.now()}`, category: data.get('category'), cn: data.get('cn').trim(), en: data.get('en').trim(), image, unit: data.get('unit') };
+      products.push(item); saveCatalog(); activeCategory = item.category; renderProducts(); addItem(item, Number(data.get('quantity'))); dialog.close(); event.currentTarget.reset(); syncCustomCategoryOptions(); toast(`已新增并加入：${item.cn}`);
+    });
+    const manager = $('#managerDialog');
+    const palette = [
+      ['#eee2bd', '#caa654'], ['#e4dff4', '#8f7bc8'], ['#f7e1d8', '#d58061'], ['#dcecf0', '#61aab7'], ['#f4e1e7', '#c77391']
+    ];
+    function fillProductEditor() {
+      const item = productById($('#editProductSelect').value);
+      if (!item) return;
+      $('#editCn').value = item.cn; $('#editEn').value = item.en; $('#editImage').value = ''; $('#editUnit').innerHTML = unitOptions(item.unit);
+      $('#editCategory').innerHTML = categoryOptions(item.category);
+      $('#deleteCustom').hidden = !item.id.startsWith('custom-');
+      $('#productOrigin').textContent = item.id.startsWith('custom-') ? '自定义食材' : '内置食材（可修改）';
+    }
+    function fillCategoryEditor() {
+      const select = $('#manageCategorySelect');
+      const cat = categoryInfo[select.value];
+      if (!cat) { $('#categoryCn').value = ''; $('#categoryEn').value = ''; $('#categoryOrigin').textContent = '创建一个新的供应商分类'; return; }
+      $('#categoryCn').value = cat.cn; $('#categoryEn').value = cat.en;
+      $('#categoryOrigin').textContent = select.value.startsWith('custom-category-') ? '自定义分类' : '内置分类（可修改）';
+    }
+    function fillUnitEditor() {
+      const select = $('#manageUnitSelect'); const name = unitInfo[select.value];
+      if (name == null) { $('#unitName').value = ''; $('#unitOrigin').textContent = '创建一个新的英文单位'; return; }
+      $('#unitName').value = name;
+      $('#unitOrigin').textContent = select.value.startsWith('custom-unit-') ? '自定义单位' : '内置单位（可修改）';
+    }
+    function refreshManager() {
+      const productSelect = $('#editProductSelect');
+      const productId = productSelect.value || products[0]?.id;
+      productSelect.innerHTML = products.map(item => `<option value="${item.id}" ${item.id === productId ? 'selected' : ''}>${item.cn} · ${item.en}</option>`).join('');
+      const catSelect = $('#manageCategorySelect');
+      const categoryId = catSelect.value && categoryInfo[catSelect.value] ? catSelect.value : activeCategory;
+      catSelect.innerHTML = categoryOptions(categoryId);
+      const unitSelect = $('#manageUnitSelect'); const unitId = unitSelect.value && unitInfo[unitSelect.value] ? unitSelect.value : 'kg';
+      unitSelect.innerHTML = unitOptions(unitId);
+      fillProductEditor(); fillCategoryEditor(); fillUnitEditor();
+    }
+    $('#openManager').addEventListener('click', () => { refreshManager(); manager.showModal(); });
+    $('#closeManager').addEventListener('click', () => manager.close());
+    $('#editProductSelect').addEventListener('change', fillProductEditor);
+    $('#manageCategorySelect').addEventListener('change', fillCategoryEditor);
+    $('#manageUnitSelect').addEventListener('change', fillUnitEditor);
+    $('#editProductForm').addEventListener('submit', async (event) => {
+      event.preventDefault(); const item = productById($('#editProductSelect').value); if (!item) return;
+      let image = item.image || '';
+      try { const uploaded = await resizeImage($('#editImage').files[0]); if (uploaded) image = uploaded; } catch (error) { toast(error.message); return; }
+      const changes = { cn: $('#editCn').value.trim(), en: $('#editEn').value.trim(), image, category: $('#editCategory').value, unit: $('#editUnit').value };
+      Object.assign(item, changes);
+      order.forEach(row => { if (row.id === item.id) Object.assign(row, changes); });
+      saveCatalog(); renderProducts(); renderOrder(); refreshManager(); toast(`已更新：${item.cn}`);
+    });
+    $('#deleteCustom').addEventListener('click', () => {
+      const id = $('#editProductSelect').value; const item = productById(id);
+      if (!item?.id.startsWith('custom-')) return;
+      if (!confirm(`删除自定义食材“${item.cn}”吗？`)) return;
+      products = products.filter(product => product.id !== id); order = order.filter(product => product.id !== id);
+      saveCatalog(); renderProducts(); renderOrder(); refreshManager(); toast('已删除自定义食材');
+    });
+    $('#newCategory').addEventListener('click', () => {
+      $('#manageCategorySelect').value = ''; $('#manageCategorySelect').insertAdjacentHTML('afterbegin', '<option value="" selected>＋ 新建供应商分类</option>'); fillCategoryEditor();
+    });
+    $('#editCategoryForm').addEventListener('submit', (event) => {
+      event.preventDefault(); const select = $('#manageCategorySelect'); let id = select.value;
+      const cn = $('#categoryCn').value.trim(); const en = $('#categoryEn').value.trim();
+      if (!id) { id = `custom-category-${Date.now()}`; const colors = palette[Object.keys(categoryInfo).length % palette.length]; categoryInfo[id] = { cn, en, bg: colors[0], accent: colors[1] }; }
+      else categoryInfo[id] = { ...categoryInfo[id], cn, en };
+      activeCategory = id; saveCatalog(); renderProducts(); renderOrder(); refreshManager(); toast(`分类已保存：${cn}`);
+    });
+    $('#newUnitButton').addEventListener('click', () => {
+      $('#manageUnitSelect').value = ''; $('#manageUnitSelect').insertAdjacentHTML('afterbegin', '<option value="" selected>＋ 新增英文单位</option>'); fillUnitEditor();
+    });
+    $('#editUnitForm').addEventListener('submit', (event) => {
+      event.preventDefault(); const select = $('#manageUnitSelect'); let id = select.value; const name = $('#unitName').value.trim();
+      if (!id) { id = `custom-unit-${Date.now()}`; unitInfo[id] = name; } else unitInfo[id] = name;
+      saveCatalog(); renderProducts(); renderOrder(); refreshManager(); toast(`单位已保存：${name}`);
+    });
+    renderProducts(); renderOrder();
+  </script>
+</body>
+</html>
